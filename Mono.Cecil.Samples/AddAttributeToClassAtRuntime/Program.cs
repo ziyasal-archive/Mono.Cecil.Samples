@@ -10,15 +10,18 @@ namespace AddAttributeToClassAtRuntime
 {
     internal class Program
     {
+        private static string _asmBase;
+
         private static void Main(string[] args)
         {
             string outputFileName = string.Empty;
-            var directoryInfo = Directory.GetParent(Directory.GetCurrentDirectory()).Parent;
+            DirectoryInfo directoryInfo = Directory.GetParent(Directory.GetCurrentDirectory()).Parent;
             if (directoryInfo != null)
             {
                 if (directoryInfo.Parent != null)
                 {
-                    outputFileName = Path.Combine(directoryInfo.Parent.FullName, @"ClassLibrary1\bin\Debug\ClassLibrary1.dll");
+                    outputFileName = Path.Combine(directoryInfo.Parent.FullName,
+                        @"ClassLibrary1\bin\Debug\ClassLibrary1.dll");
                 }
             }
 
@@ -27,22 +30,25 @@ namespace AddAttributeToClassAtRuntime
 
             if (directoryName != null)
             {
-
                 // get the assembly given the path name, and get the main module 
-                var assembly = AssemblyDefinition.ReadAssembly(outputFileName);
-                var module = assembly.MainModule;
+                AssemblyDefinition assembly = AssemblyDefinition.ReadAssembly(outputFileName);
+                ModuleDefinition module = assembly.MainModule;
 
                 // Foo is the class that will get the attribute 
-                var foo = module.Types.First(x => x.Name == "Person");
+                TypeDefinition foo = module.Types.First(x => x.Name == "Person");
 
-                if (foo.CustomAttributes.Where(attribute => attribute.AttributeType.FullName == "System.SerializableAttribute").ToList().Count == 0)
+                if (
+                    foo.CustomAttributes.Where(
+                        attribute => attribute.AttributeType.FullName == "System.SerializableAttribute").ToList().Count ==
+                    0)
                 {
                     if (File.Exists(outputFileName))
                     {
                         File.Delete(outputFileName);
                     }
 
-                    var attCtor = module.Import(typeof(SerializableAttribute).GetConstructor(Type.EmptyTypes));
+                    MethodReference attCtor =
+                        module.Import(typeof (SerializableAttribute).GetConstructor(Type.EmptyTypes));
                     var custatt = new CustomAttribute(attCtor);
                     foo.CustomAttributes.Add(custatt);
 
@@ -74,11 +80,13 @@ namespace AddAttributeToClassAtRuntime
                 Console.WriteLine(JsonConvert.SerializeObject(instance));
 
                 Console.WriteLine("Attributes");
-                IEnumerable<SerializableAttribute> customAttributes = type.GetCustomAttributes(typeof(SerializableAttribute), true) as IEnumerable<SerializableAttribute>;
+                var customAttributes =
+                    type.GetCustomAttributes(typeof (SerializableAttribute), true) as IEnumerable<SerializableAttribute>;
                 if (customAttributes != null)
                     Console.WriteLine("Attribute Count: {0}", customAttributes.Count());
             }
         }
+
         private static void UseDynamics(string outputFileName)
         {
             Assembly loadAssembly = LoadAssembly(outputFileName);
@@ -91,8 +99,7 @@ namespace AddAttributeToClassAtRuntime
             }
         }
 
-        private static string _asmBase;
-
+        //http://stackoverflow.com/questions/6555229/assembly-loadfrom-throw-exception/6555263#6555263
         public static Assembly LoadAssembly(string assemblyName)
         {
             _asmBase = Path.GetDirectoryName(assemblyName);
@@ -102,29 +109,29 @@ namespace AddAttributeToClassAtRuntime
             return Assembly.Load(File.ReadAllBytes(assemblyName));
         }
 
+        //http://stackoverflow.com/questions/6555229/assembly-loadfrom-throw-exception/6555263#6555263
         private static Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args)
         {
             //This handler is called only when the common language runtime tries to bind to the assembly and fails.
-
             //Retrieve the list of referenced assemblies in an array of AssemblyName.
             string strTempAssmbPath = "";
-            var objExecutingAssemblies = args.RequestingAssembly;
+            Assembly objExecutingAssemblies = args.RequestingAssembly;
             AssemblyName[] arrReferencedAssmbNames = objExecutingAssemblies.GetReferencedAssemblies();
 
             //Loop through the array of referenced assembly names.
             foreach (AssemblyName strAssmbName in arrReferencedAssmbNames)
             {
                 //Check for the assembly names that have raised the "AssemblyResolve" event.
-                if (strAssmbName.FullName.Substring(0, strAssmbName.FullName.IndexOf(",")) == args.Name.Substring(0, args.Name.IndexOf(",")))
+                if (strAssmbName.FullName.Substring(0, strAssmbName.FullName.IndexOf(",")) ==
+                    args.Name.Substring(0, args.Name.IndexOf(",")))
                 {
                     //Build the path of the assembly from where it has to be loaded.                
                     strTempAssmbPath = _asmBase + "\\" + args.Name.Substring(0, args.Name.IndexOf(",")) + ".dll";
                     break;
                 }
-
             }
             //Load the assembly from the specified path.                    
-            var assembly = Assembly.LoadFrom(strTempAssmbPath);
+            Assembly assembly = Assembly.LoadFrom(strTempAssmbPath);
 
             //Return the loaded assembly.
             return assembly;
